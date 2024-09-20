@@ -6,6 +6,15 @@ import axios from "axios";
 import {gsap} from "gsap";
 import {FaCheckCircle, FaExclamationCircle, FaHeart, FaRegHeart, FaSpinner} from "react-icons/fa";
 import {FaRegFaceSmile} from "react-icons/fa6";
+import '../styles/camera.css'
+import {
+    fetchFavoriteRecipes,
+    fetchNutritionAndRecipes,
+    fetchRecipes,
+    handleAddFavoriteRecipe,
+    handleGetUserInfo,
+    handleSaveUserInfo
+} from "../api/services";
 
 const Camera = () => {
     const webcamRef = useRef(null);
@@ -34,19 +43,124 @@ const Camera = () => {
     const [showFavorites, setShowFavorites] = useState(false);
 
     const videoConstraints = {
-        width: 640,
-        height: 480,
+        width: 1920,
+        height: 1080,
         facingMode: "user"
     };
 
+    const commands = [
+        {
+            command: 'Empezar',
+            callback: () => handleGetUserInfo(setShowUserModal, setUserInfo, setIsDetectionActive, setIsMenuOpen)
+        },
+        {
+            command: 'Detener',
+            callback: () => setIsDetectionActive(false)
+        },
+        {
+            command: 'Abrir menú',
+            callback: () => openMenu()
+        },
+        {
+            command: 'Cerrar menú',
+            callback: () => closeMenu()
+        },
+        {
+            command: 'Mostrar información',
+            callback: () => fetchNutritionAndRecipes(setLoading, setShowRecipes, setNewInfoAvailable, detections, userInfo, setNutritionInfo, setDetections, setRecipes, setShowNotifications)
+        },
+        {
+            command: 'Mostrar preparación',
+            callback: () => togglePreparation()
+        },
+        {
+            command: 'Agregar favorito',
+            callback: () => handleAddFavoriteRecipe(userInfo, recipes, currentRecipeIndex)
+        },
+        {
+            command: 'Mostrar recetas',
+            callback: () => fetchRecipes(setCurrentRecipeIndex, setShowRecipes, setShowFavorites, setVoiceRecipe, setShowNotifications)
+        },
+        {
+            command: 'Siguiente receta',
+            callback: () => nextRecipe()
+        },
+        {
+            command: 'Anterior receta',
+            callback: () => previousRecipe()
+        },
+        {
+            command: 'Mi nombre es *',
+            callback: (name) => {
+                setName(name);
+                document.getElementById('dobInput').focus(); // Enfoca el siguiente input
+            }
+        },
+        {
+            command: 'Mi fecha de nacimiento es *',
+            callback: (dob) => {
+                setDob(dob);
+                document.getElementById('foodPreferenceInput').focus(); // Enfoca el siguiente input
+            }
+        },
+        {
+            command: 'Mis preferencias alimentarias son *',
+            callback: (preference) => {
+                const preferenceArray = preference.split(',');
+                setFoodPreference(preferenceArray);
+            }
+        },
+        {
+            command: 'Enviar',
+            callback: () => handleSaveUserInfo(name, dob, foodPreference, setUserInfo, setShowUserModal)
+        },
+        {
+            command: 'Mostrar mis recetas favoritas',
+            callback: () => fetchFavoriteRecipes(userInfo, setCurrentRecipeIndex, setShowRecipes, setVoiceRecipe, setFavoriteRecipes, setShowFavorites )
 
+        }
+    ];
+
+    const { transcript, resetTranscript } = useSpeechRecognition({ commands });
+
+    const previousRecipe = () => {
+        setCurrentRecipeIndex((currentRecipeIndex - 1 + recipes.length) % recipes.length);
+        setShowPreparation(false);
+    };
+
+    const nextRecipe = () => {
+        if (voiceRecipe === true) {
+            setCurrentRecipeIndex((currentRecipeIndex + 1) % recipes.length);
+        } else {
+            setCurrentRecipeIndex((currentRecipeIndex + 1) % favoriteRecipes.length);
+        }
+        setShowPreparation(false);
+    };
+
+    const closeMenu = () => {
+        setShowRecipes(false);
+        setShowFavorites(false);
+        setIsMenuOpen(false);
+        setShowNotifications(false);
+    }
+
+    const openMenu = () => {
+        setIsMenuOpen(true);
+        if (voiceRecipe === true) {
+            setShowRecipes(true);
+        } else {
+            setShowFavorites(true);
+        }
+    }
+    const togglePreparation = () => {
+        setShowPreparation(!showPreparation);
+    };
     const capture = useCallback(async () => {
         if (!isDetectionActive || isRequestPending) return;
 
         setIsRequestPending(true);
 
         const imageSrc = webcamRef.current.getScreenshot();
-        console.log('this is ss: ', imageSrc);
         if (imageSrc) {
             try {
                 const response = await axios.post('http://127.0.0.1:8000/api/detect/', { image: imageSrc.split(",")[1] });
@@ -70,20 +184,53 @@ const Camera = () => {
         }
     }, [webcamRef, isDetectionActive, isRequestPending, detections]);
 
+    // Función para aplicar la homografía
+    const applyHomography = (x, y, homographyMatrix) => {
+        const point = [x, y, 1];
+
+        // Multiplicar el punto por la matriz de homografía
+        const transformedPoint = [
+            homographyMatrix[0][0] * point[0] + homographyMatrix[0][1] * point[1] + homographyMatrix[0][2] * point[2],
+            homographyMatrix[1][0] * point[0] + homographyMatrix[1][1] * point[1] + homographyMatrix[1][2] * point[2],
+            homographyMatrix[2][0] * point[0] + homographyMatrix[2][1] * point[1] + homographyMatrix[2][2] * point[2]
+        ];
+
+        // Normalizar las coordenadas para obtener los valores correctos
+        const transformedX = transformedPoint[0] / transformedPoint[2];
+        const transformedY = transformedPoint[1] / transformedPoint[2];
+
+        return { transformedX, transformedY };
+    };
+
+
     useEffect(() => {
         const interval = setInterval(capture, 500);
         return () => clearInterval(interval);
+
+
     }, [capture]);
 
     useEffect(() => {
         const existingElements = document.querySelectorAll('.detection, .detection-info, .detection-name, .detection-name-top, .detection-name-bottom');
         existingElements.forEach(element => element.remove());
 
+        const homographyMatrix = [
+            [9.92591391e-01, -3.01035909e-02, 1.07000231e+01],
+            [2.15289716e-02, 9.73421613e-01, 4.38106454e+00],
+            [2.34028549e-06, -1.63517604e-05, 1.00000000e+00]
+        ];
+
+
 
         detections.forEach((detection, index) => {
             const { x1, y1, x2, y2 } = detection.coordinates;
-            const centerX = (x1 + x2) / 2;
-            const centerY = (y1 + y2) / 2;
+
+            const { transformedX: centerX, transformedY: centerY } = applyHomography(
+                (x1 + x2) / 2, // Coordenada X del centro
+                (y1 + y2) / 2, // Coordenada Y del centro
+                homographyMatrix
+            );
+
             const width = x2 - x1;
             const height = y2 - y1;
             const radius = Math.max(width, height) / 2;
@@ -96,14 +243,14 @@ const Camera = () => {
             svgContainer.setAttribute('style', `position: absolute; left: ${centerX - ringRadius}px; top: ${centerY - ringRadius}px; pointer-events: none; z-index: 2;`);
 
             svgContainer.innerHTML = `
-            <defs>
-                <mask id="mask-${index}">
-                    <rect x="0" y="0" width="${ringRadius * 10}" height="${ringRadius * 2}" fill="white"/>
-                    <circle cx="${ringRadius}" cy="${ringRadius}" r="${radius}" fill="black" />
-                </mask>
-            </defs>
-            <circle cx="${ringRadius}" cy="${ringRadius}" r="${ringRadius}" fill="rgba(0, 0, 0, 0.5)" mask="url(#mask-${index})" />
-        `;
+        <defs>
+            <mask id="mask-${index}">
+                <rect x="0" y="0" width="${ringRadius * 10}" height="${ringRadius * 2}" fill="white"/>
+                <circle cx="${ringRadius}" cy="${ringRadius}" r="${radius}" fill="black" />
+            </mask>
+        </defs>
+        <circle cx="${ringRadius}" cy="${ringRadius}" r="${ringRadius}" fill="rgba(0, 0, 0, 0.5)" mask="url(#mask-${index})" />
+    `;
 
             document.querySelector('.camera-container').appendChild(svgContainer);
 
@@ -115,15 +262,15 @@ const Camera = () => {
             textTopPath.setAttribute('style', `position: absolute; left: ${centerX - ringRadius}px; top: ${centerY - ringRadius - 17}px; pointer-events: none; z-index: 3;`);
 
             textTopPath.innerHTML = `
-            <defs>
-                <path id="textTopPath-${index}" d="M ${ringRadius},${ringRadius} m -${radius},0 a ${radius},${radius} 0 1,1 ${radius * 2},0" />
-            </defs>
-            <text fill="#000000" font-size="${(ringRadius / radius)*20}" font-weight="bold">
-                <textPath xlink:href="#textTopPath-${index}" startOffset="50%" text-anchor="middle">
-                    Tamaño de porción 100g
-                </textPath>
-            </text>
-        `;
+        <defs>
+            <path id="textTopPath-${index}" d="M ${ringRadius},${ringRadius} m -${radius},0 a ${radius},${radius} 0 1,1 ${radius * 2},0" />
+        </defs>
+        <text fill="#000000" font-size="${(ringRadius / radius)*20}" font-weight="bold">
+            <textPath xlink:href="#textTopPath-${index}" startOffset="50%" text-anchor="middle">
+                Tamaño de porción 100g
+            </textPath>
+        </text>
+    `;
 
             document.querySelector('.camera-container').appendChild(textTopPath);
 
@@ -135,15 +282,15 @@ const Camera = () => {
             textBottomPath.setAttribute('style', `position: absolute; left: ${centerX - ringRadius}px; top: ${centerY - ringRadius + 40 }px; pointer-events: none; z-index: 3;`);
 
             textBottomPath.innerHTML = `
-            <defs>
-                <path id="textBottomPath-${index}" d="M ${ringRadius},${ringRadius} m -${radius},0 a ${radius},${radius} 0 1,0 ${radius * 2},0" />
-            </defs>
-            <text fill="#000000" font-size="50" font-weight="bold">
-                <textPath xlink:href="#textBottomPath-${index}" startOffset="50%" text-anchor="middle">
-                    ${detection.name}
-                </textPath>
-            </text>
-        `;
+        <defs>
+            <path id="textBottomPath-${index}" d="M ${ringRadius},${ringRadius} m -${radius},0 a ${radius},${radius} 0 1,0 ${radius * 2},0" />
+        </defs>
+        <text fill="#000000" font-size="50" font-weight="bold">
+            <textPath xlink:href="#textBottomPath-${index}" startOffset="50%" text-anchor="middle">
+                ${detection.name}
+            </textPath>
+        </text>
+    `;
 
             document.querySelector('.camera-container').appendChild(textBottomPath);
 
@@ -158,7 +305,6 @@ const Camera = () => {
                         // Puedes ajustar el ángulo aquí si lo deseas, por ejemplo, distribuyendolos en un círculo
                         angle: (360 / Object.keys(nutritionData).length) * Object.keys(nutritionData).indexOf(key),
                     }));
-
 
                 nutritionInfoElements.forEach(info => {
                     const angle = info.angle * (Math.PI / 180);
@@ -181,9 +327,9 @@ const Camera = () => {
                     detectionInfo.style.whiteSpace = 'nowrap';
                     detectionInfo.style.zIndex = '2';
                     detectionInfo.innerHTML = `
-                    <strong>${info.value}</strong><br>
-                    ${info.label}
-                `;
+                <strong>${info.value}</strong><br>
+                ${info.label}
+            `;
                     document.querySelector('.camera-container').appendChild(detectionInfo);
                 });
             }
@@ -196,11 +342,14 @@ const Camera = () => {
     }, [detections, nutritionInfo]);
 
 
+
     useEffect(() => {
         if (!SpeechRecognition.browserSupportsSpeechRecognition()) {
             console.error("Este navegador no soporta reconocimiento de voz.");
         } else {
             SpeechRecognition.startListening({ continuous: true });
+
+
         }
     }, []);
 
@@ -256,7 +405,7 @@ const Camera = () => {
                 height: '100%',
                 backgroundColor: 'white',
                 zIndex: '1',
-                opacity: '0.1'
+                opacity: '1'
             }}></div>
             {isMenuOpen && (
                 <div ref={menuRef} style={menuStyle}>
@@ -377,6 +526,7 @@ const Camera = () => {
                     </div>
                 </div>
             )}
+            <span><strong>{transcript}</strong></span>
         </div>
     )
 }

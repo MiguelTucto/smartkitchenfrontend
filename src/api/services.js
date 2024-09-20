@@ -110,7 +110,7 @@ export const handleGetUserInfo = async (setShowUserModal, setUserInfo, setIsDete
         if (response.data.length === 0) {
             setShowUserModal(true);
         } else {
-            const rv2 = await axios.get('http://127.0.0.1:8000/api/get-user-profile/35/');
+            const rv2 = await axios.get('http://127.0.0.1:8000/api/get-user-profile/36/');
             setUserInfo(rv2.data);
             setIsDetectionActive(true);
             setIsMenuOpen(true);
