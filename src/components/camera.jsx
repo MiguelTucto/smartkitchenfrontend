@@ -1,10 +1,10 @@
 import Webcam from "react-webcam";
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 
-import {useCallback, useEffect, useRef, useState} from "react";
+import React, {useCallback, useEffect, useRef, useState} from "react";
 import axios from "axios";
 import {gsap} from "gsap";
-import {FaCheckCircle, FaExclamationCircle, FaHeart, FaRegHeart, FaSpinner} from "react-icons/fa";
+import {FaCarrot, FaCheckCircle, FaExclamationCircle, FaHeart, FaLemon, FaRegHeart, FaSpinner} from "react-icons/fa";
 import {FaRegFaceSmile} from "react-icons/fa6";
 import '../styles/camera.css'
 import {
@@ -15,6 +15,8 @@ import {
     handleGetUserInfo,
     handleSaveUserInfo
 } from "../api/services";
+import {GiPickle, GiPotato, GiShinyApple, GiTomato} from "react-icons/gi";
+import {PiOrangeFill} from "react-icons/pi";
 
 const Camera = () => {
     const webcamRef = useRef(null);
@@ -41,12 +43,24 @@ const Camera = () => {
     const [newInfoAvailable, setNewInfoAvailable] = useState(false);
     const [favoriteRecipes, setFavoriteRecipes] = useState([]);
     const [showFavorites, setShowFavorites] = useState(false);
+    const [showRecipeNotification, setShowRecipeNotification] = useState(true);
+    const notificationRef = useRef(null);
 
     const videoConstraints = {
         width: 1920,
         height: 1080,
         facingMode: "user"
     };
+
+    const iconMap = {
+        manzana: GiShinyApple,
+        zanahoria: FaCarrot,
+        pepinillo: GiPickle,
+        limon: FaLemon,
+        tomate: GiTomato ,
+        papa: GiPotato ,
+        naranja: PiOrangeFill,
+    }
 
     const commands = [
         {
@@ -211,14 +225,32 @@ const Camera = () => {
     }, [capture]);
 
     useEffect(() => {
+        if (showRecipes) {
+            setShowRecipeNotification(true); // Mostrar la notificación cuando se cargan las recetas
+            const timer = setTimeout(() => {
+                // Animar la desaparición con GSAP
+                gsap.to(notificationRef.current, {
+                    opacity: 0,
+                    y: -20,
+                    duration: 1.5, // Duración de la animación (1 segundo)
+                    onComplete: () => setShowRecipeNotification(false), // Después de la animación, ocultar la notificación
+                });
+            }, 5000); // Esperar 2 segundos antes de iniciar la animación de desaparición
+
+            return () => clearTimeout(timer); // Limpiar el temporizador si el componente se desmonta
+        }
+    }, [showRecipes]);
+
+
+    useEffect(() => {
         const existingElements = document.querySelectorAll('.detection, .detection-info, .detection-name, .detection-name-top, .detection-name-bottom');
         existingElements.forEach(element => element.remove());
 
         const homographyMatrix = [
-            [9.92591391e-01, -3.01035909e-02, 1.07000231e+01],
-            [2.15289716e-02, 9.73421613e-01, 4.38106454e+00],
-            [2.34028549e-06, -1.63517604e-05, 1.00000000e+00]
-        ];
+            [ 9.85820722e-01, -1.01994070e-03,  1.29719571e+01],
+            [ 1.94296259e-03,  9.68230691e-01,  1.35171648e+00],
+            [ 4.14613758e-06, -1.29106418e-05,  1.00000000e+00]]
+        ;
 
 
 
@@ -233,7 +265,7 @@ const Camera = () => {
 
             const width = x2 - x1;
             const height = y2 - y1;
-            const radius = Math.max(width, height) / 2;
+            const radius = (Math.max(width, height) / 2) + 20;
             const ringRadius = radius + 50;
 
             const svgContainer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -249,7 +281,7 @@ const Camera = () => {
                 <circle cx="${ringRadius}" cy="${ringRadius}" r="${radius}" fill="black" />
             </mask>
         </defs>
-        <circle cx="${ringRadius}" cy="${ringRadius}" r="${ringRadius}" fill="rgba(0, 0, 0, 0.5)" mask="url(#mask-${index})" />
+        <circle cx="${ringRadius}" cy="${ringRadius}" r="${ringRadius}" fill="rgb(0, 204, 102)" mask="url(#mask-${index})" />
     `;
 
             document.querySelector('.camera-container').appendChild(svgContainer);
@@ -259,14 +291,14 @@ const Camera = () => {
             textTopPath.setAttribute('class', 'detection-name-top');
             textTopPath.setAttribute('width', `${ringRadius * 2}`);
             textTopPath.setAttribute('height', `${ringRadius * 2}`);
-            textTopPath.setAttribute('style', `position: absolute; left: ${centerX - ringRadius}px; top: ${centerY - ringRadius - 17}px; pointer-events: none; z-index: 3;`);
+            textTopPath.setAttribute('style', `position: absolute; left: ${centerX - ringRadius}px; top: ${centerY - ringRadius - 30}px; pointer-events: none; z-index: 3;`);
 
             textTopPath.innerHTML = `
         <defs>
-            <path id="textTopPath-${index}" d="M ${ringRadius},${ringRadius} m -${radius},0 a ${radius},${radius} 0 1,1 ${radius * 2},0" />
+            <path id="textTopPath-${index}" d="M ${ringRadius},${ringRadius + 20} m -${radius},0 a ${radius},${radius} 0 1,1 ${radius * 2},0" />
         </defs>
-        <text fill="#000000" font-size="${(ringRadius / radius)*20}" font-weight="bold">
-            <textPath xlink:href="#textTopPath-${index}" startOffset="50%" text-anchor="middle">
+        <text fill="#000000" font-size="${ringRadius * 0.15}" letter-spacing="1"  font-weight="bold">
+            <textPath xlink:href="#textTopPath-${index}" startOffset="40%" text-anchor="middle">
                 Tamaño de porción 100g
             </textPath>
         </text>
@@ -279,14 +311,14 @@ const Camera = () => {
             textBottomPath.setAttribute('class', 'detection-name-bottom');
             textBottomPath.setAttribute('width', `${ringRadius * 2}`);
             textBottomPath.setAttribute('height', `${ringRadius * 2}`);
-            textBottomPath.setAttribute('style', `position: absolute; left: ${centerX - ringRadius}px; top: ${centerY - ringRadius + 40 }px; pointer-events: none; z-index: 3;`);
+            textBottomPath.setAttribute('style', `position: absolute; left: ${centerX - ringRadius}px; top: ${centerY - ringRadius + 40}px; pointer-events: none; z-index: 3;`);
 
             textBottomPath.innerHTML = `
         <defs>
             <path id="textBottomPath-${index}" d="M ${ringRadius},${ringRadius} m -${radius},0 a ${radius},${radius} 0 1,0 ${radius * 2},0" />
         </defs>
-        <text fill="#000000" font-size="50" font-weight="bold">
-            <textPath xlink:href="#textBottomPath-${index}" startOffset="50%" text-anchor="middle">
+        <text fill="#ffffff" font-size="${ringRadius*0.25}" letter-spacing="5" font-weight="bold" >
+            <textPath xlink:href="#textBottomPath-${index}" startOffset="60%" text-anchor="middle">
                 ${detection.name}
             </textPath>
         </text>
@@ -295,41 +327,50 @@ const Camera = () => {
             document.querySelector('.camera-container').appendChild(textBottomPath);
 
             if (nutritionInfo[detection.name]) {
-
                 const nutritionData = nutritionInfo[detection.name];
-                console.log('its printing nutrition info: ', nutritionData)
                 const nutritionInfoElements = Object.entries(nutritionData)
-                    .map(([key, value], index, array) => ({
+                    .map(([key, value], idx) => ({
                         label: key,
                         value: value,
-                        // Puedes ajustar el ángulo aquí si lo deseas, por ejemplo, distribuyendolos en un círculo
-                        angle: (360 / Object.keys(nutritionData).length) * Object.keys(nutritionData).indexOf(key),
+                        angle: (120 / Object.keys(nutritionData).length) * idx, // Distribuir en un ángulo uniforme
                     }));
 
                 nutritionInfoElements.forEach(info => {
                     const angle = info.angle * (Math.PI / 180);
-                    const infoX = centerX + (radius + 80) * Math.cos(angle);
-                    const infoY = centerY + (radius + 80) * Math.sin(angle);
+                    const infoX = centerX + (radius + 115) * Math.cos(angle);
+                    const infoY = centerY + (radius + 90) * Math.sin(angle);
 
+                    // Crear la línea que conecta el anillo verde con la información
+                    const lineElement = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    lineElement.setAttribute('class', 'nutrition-line');
+                    lineElement.setAttribute('x1', centerX + radius * Math.cos(angle)); // Punto en el anillo
+                    lineElement.setAttribute('y1', centerY + radius * Math.sin(angle)); // Punto en el anillo
+                    lineElement.setAttribute('x2', infoX); // Punto en el texto nutricional
+                    lineElement.setAttribute('y2', infoY); // Punto en el texto nutricional
+                    lineElement.setAttribute('stroke', 'yellow');
+                    lineElement.setAttribute('stroke-width', '20');
+                    lineElement.setAttribute('style', 'position: absolute; z-index: 3;');
+
+                    svgContainer.appendChild(lineElement); // Añadir la línea al contenedor SVG
+
+                    // Crear el cuadro de información nutricional
                     const detectionInfo = document.createElement('div');
                     detectionInfo.className = 'detection-info';
                     detectionInfo.style.position = 'absolute';
                     detectionInfo.style.left = `${infoX}px`;
                     detectionInfo.style.top = `${infoY}px`;
                     detectionInfo.style.transform = `translate(-50%, -50%)`;
-                    detectionInfo.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
                     detectionInfo.style.color = 'white';
                     detectionInfo.style.padding = '5px';
-                    detectionInfo.style.fontSize = '12px';
+                    detectionInfo.style.fontSize = '20px';
                     detectionInfo.style.fontStyle = 'italic';
                     detectionInfo.style.fontWeight = 'bold';
-                    detectionInfo.style.borderRadius = '5px';
                     detectionInfo.style.whiteSpace = 'nowrap';
                     detectionInfo.style.zIndex = '2';
                     detectionInfo.innerHTML = `
-                <strong>${info.value}</strong><br>
-                ${info.label}
-            `;
+                    <p style="font-size: 50px; font-weight: bolder; color: black">${info.value}</p>
+                    <p style="color: black">${info.label}</p>
+                `;
                     document.querySelector('.camera-container').appendChild(detectionInfo);
                 });
             }
@@ -348,8 +389,6 @@ const Camera = () => {
             console.error("Este navegador no soporta reconocimiento de voz.");
         } else {
             SpeechRecognition.startListening({ continuous: true });
-
-
         }
     }, []);
 
@@ -408,91 +447,125 @@ const Camera = () => {
                 opacity: '1'
             }}></div>
             {isMenuOpen && (
-                <div ref={menuRef} style={menuStyle}>
+                <div ref={menuRef} style={menuStyle} >
                     {userInfo ? (
-                        <p style={menuTitleStyle}>Bienvenido, {userInfo.first_name}</p>
+                        <p className="text-3xl italic font-semibold border-b border-gray-500 pb-2 mb-4">Bienvenido, {userInfo.first_name}</p>
                     ) : (
-                        <p>No se ha registrado usuario.</p>
+                        <p className="text-red-500">No se ha registrado usuario.</p>
                     )}
-                    <ul style={detectionListStyle}>
-                        {detections.map((detection, index) => (
-                            <li key={index} style={detectionItemStyle}>
-                                {detection.name}
-                            </li>
-                        ))}
+                    <ul className="mb-4">
+                        {detections.map((detection, index) => {
+                            const IconComponent = iconMap[detection.name.toLowerCase()];
+                            return (
+                                <li key={index} className="flex items-center space-x-3 mb-2 text-lg">
+                                    {IconComponent && <IconComponent  className="text-2xl text-white"/>}
+                                    <span className="text-white">{detection.name}</span>
+                                </li>
+                            )
+
+                        })}
                     </ul>
                     {loading && (
-                        <div style={waitingStyle}>
-                            <FaSpinner ref={spinnerRef}
-                                       style={{marginRight: '10px', animation: 'spin 1s linear infinite'}}/>
+                        <div className="flex items-center text-yellow-400 font-bold">
+                            <FaSpinner className="animate-spin mr-3"/>
                             Cargando...
                         </div>
                     )}
                     {newInfoAvailable && detections.length > 0 && (
-                        <div style={loadingStyle}>
-                            <FaExclamationCircle style={{marginRight: '10px'}}/>
+                        <div className="flex items-center bg-yellow-500 text-white p-2 rounded-lg font-bold">
+                            <FaExclamationCircle className="mr-3"/>
                             Hay nueva información disponible
                         </div>
                     )}
                     {detections.length == 0 && (
-                        <div style={loadingStyle}>
-                            Realiza nuevas detecciones <FaRegFaceSmile style={{marginLeft: '10px'}}/>
+                        <div className="flex items-center text-gray-400 font-bold">
+                            Realiza nuevas detecciones <FaRegFaceSmile className="ml-3"/>
                         </div>
                     )}
                     {showNotifications && (
                         <div>
-                            <div style={nutritionInFoStyle}>
-                                <FaCheckCircle style={{marginRight: '10px'}}/>
+                            <div className="flex items-center bg-green-500 text-white p-2 rounded-lg mt-2 font-bold">
+                                <FaCheckCircle className="mr-3"/>
                                 Información nutricional cargada
                             </div>
-                            <div style={loadingStyle}>
-                                <FaExclamationCircle style={{marginRight: '10px'}}/>
+                            <div className="flex items-center bg-yellow-500 text-white p-2 rounded-lg mt-2 font-bold">
+                                <FaExclamationCircle className="mr-3"/>
                                 Recetas disponibles
                             </div>
                         </div>
                     )}
                     {showRecipes && (
                         <div>
-                            <div style={nutritionInFoStyle}>
-                                <FaCheckCircle style={{marginRight: '10px'}}/>
-                                Recetas cargadas
-                            </div>
-                            <div ref={recipeRef} style={recipeContainerStyle}>
-                                <div className={'flex flex-row justify-between items-center'} style={recipeTitleStyle}>
-                                    <h3>{recipes[currentRecipeIndex].title}</h3>
-                                    <FaRegHeart
-                                        className="favorite-icon"
-                                    />
+                            {showRecipeNotification && (
+                                <div ref={notificationRef} className="flex items-center bg-green-500 text-white p-2 rounded-lg mt-3 font-bold">
+                                    <FaCheckCircle className="mr-3"/>
+                                    Recetas cargadas
                                 </div>
-                                <p style={{borderBottom: '1px solid white'}}>
-                                    <strong>Ingredientes:</strong> {recipes[currentRecipeIndex].ingredients}</p>
-                                {showPreparation && (
-                                    <p><strong>Preparación:</strong> {recipes[currentRecipeIndex].preparation}</p>
-                                )}
-                                <span
-                                    style={{marginLeft: '40%'}}>{currentRecipeIndex + 1} de {recipes.length}</span>
+                            )}
+                            <div ref={recipeRef} className="bg-white p-5 rounded-lg shadow-lg text-black mt-3">
+                                <div className="mb-5">
+                                    <div className="flex flex-row justify-between items-center mb-3">
+                                        <h1 className="text-3xl font-black">{recipes[currentRecipeIndex].title}</h1>
+                                        <FaRegHeart
+                                            className="text-red-500 text-6xl"
+                                        />
+                                    </div>
+                                    <p className="font-semibold mb-2">Ingredientes:</p>
+                                    <ul className="list-disc list-inside ml-4 mb-4 font-mono">
+                                        {recipes[currentRecipeIndex].ingredients.split(',').map((ingredient, index) => (
+                                            <li key={index} className={'capitalize'}>{ingredient.trim()}</li>
+                                        ))}
+                                    </ul>
+                                    {showPreparation && (
+                                        <>
+                                            <p className="font-semibold mb-2">Preparación:</p>
+                                            <ol className="list-decimal list-inside ml-4 mb-4 font-sans">
+                                                {recipes[currentRecipeIndex].preparation.split('.').map((step, index) => (
+                                                    step.trim() !== '' && <li key={index} className={"mb-2"}>{step.trim()}</li>
+                                                ))}
+                                            </ol>
+                                        </>
+                                    )}
+                                    <div className="text-center mt-5">
+                                        <strong>{currentRecipeIndex + 1} de {recipes.length}</strong>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                     )}
                     {showFavorites && favoriteRecipes.length > 0 && (
-                        <div style={favoriteContainerStyle}>
-                            <div style={{marginBottom: '20px'}}>
-                                <div className={'flex flex-row justify-between items-center'}
-                                     style={favoriteTitleStyle}>
-                                    <h3>{favoriteRecipes[currentRecipeIndex].title} </h3>
-                                    <FaHeart
-                                        className="favorite-icon"
-                                        style={{color: 'red'}}
-                                    />
+                        <div className="bg-white p-5 rounded-lg shadow-lg text-black mt-3">
+                            <div className="mb-5">
+                                <div className="flex flex-row justify-between items-center mb-3">
+                                    <h1 className="text-3xl font-black">{favoriteRecipes[currentRecipeIndex].title}</h1>
+                                    <FaHeart className="text-red-500 text-6xl"/>
                                 </div>
-                                <p><strong>Ingredientes:</strong> {favoriteRecipes[currentRecipeIndex].ingredients}</p>
-                                <p><strong>Preparación:</strong> {favoriteRecipes[currentRecipeIndex].preparation}</p>
-                                <span
-                                    style={{marginLeft: '40%'}}>{currentRecipeIndex + 1} de {favoriteRecipes.length}</span>
+
+                                {/* Ingredientes en formato de lista */}
+                                <p className="font-semibold mb-2">Ingredientes:</p>
+                                <ul className="list-disc list-inside ml-4 mb-4 font-mono">
+                                    {favoriteRecipes[currentRecipeIndex].ingredients.split(',').map((ingredient, index) => (
+                                        <li key={index} className={'capitalize'}>{ingredient.trim()}</li>
+                                    ))}
+                                </ul>
+
+                                {/* Preparación en formato de lista numerada */}
+                                <p className="font-semibold mb-2">Preparación:</p>
+                                <ol className="list-decimal list-inside ml-4 mb-4 font-sans">
+                                    {favoriteRecipes[currentRecipeIndex].preparation.split('.').map((step, index) => (
+                                        step.trim() !== '' && <li key={index} className="mb-2">{step.trim()}.</li>
+                                    ))}
+                                </ol>
+
+                                {/* Índice del número de receta */}
+                                <div className="text-center mt-5">
+                                    <strong>{currentRecipeIndex + 1} de {favoriteRecipes.length}</strong>
+                                </div>
                             </div>
                         </div>
                     )}
+
                 </div>
             )}
             {showUserModal && (
@@ -526,7 +599,7 @@ const Camera = () => {
                     </div>
                 </div>
             )}
-            <span><strong>{transcript}</strong></span>
+            <span className={'text-black'}><strong>{transcript}</strong></span>
         </div>
     )
 }
@@ -576,7 +649,7 @@ const menuStyle = {
     top: '50px',
     right: '50px',
     width: '350px',
-    backgroundColor: 'rgba(18, 119, 128, 0.95)', // Fondo anaranjado más vibrante
+    backgroundColor: 'rgb(0,0,0)', // Fondo anaranjado más vibrante
     color: 'white', // Color de texto blanco para contraste
     padding: '20px',
     borderRadius: '10px',
@@ -606,10 +679,7 @@ const detectionItemStyle = {
     marginBottom: '10px',
     fontSize: '18px',
     lineHeight: '1.5',
-    border: '1px solid rgba(255, 255, 255, 0.5)', // Borde blanco translúcido para mantener coherencia
-    borderRadius: '5px',
     padding: '5px 10px',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)', // Fondo translúcido para detecciones
     color: 'white' // Color de texto blanco
 };
 
@@ -669,5 +739,8 @@ const transcriptStyle = {
     color: 'white',
     zIndex: '2'
 };
-
+const iconStyle= {
+    marginRight: '10px',
+    fontSize: '24px'
+}
 export default Camera

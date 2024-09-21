@@ -20,7 +20,7 @@ export const fetchNutritionAndRecipes = async (setLoading, setShowRecipes, setNe
                 },
                 {
                     role: "user",
-                    content: `Dame la información nutricional: ${nutritionalInfo.join(',')}. También tres recetas usando los siguientes ingredientes: ${ingredients}. La respuesta debe estar estructurada de la siguiente manera (no antepongas la palabra json a la respuesta generada):
+                    content: `Dame la información nutricional de: ${nutritionalInfo.join(',')} (ejemplo: 19g). También tres recetas usando los siguientes ingredientes: ${ingredients}. La respuesta debe estar estructurada de la siguiente manera (no antepongas la palabra json a la respuesta generada):
                         {
                             "nutritional_info": {
                                 "Ingrediente1": {
