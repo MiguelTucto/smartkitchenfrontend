@@ -266,7 +266,11 @@ const Camera = () => {
             const width = x2 - x1;
             const height = y2 - y1;
             const radius = (Math.max(width, height) / 2) + 20;
-            const ringRadius = radius + 50;
+            const ringThickness = radius * 0.3; // Incrementa el grosor del anillo
+            const ringRadius = radius + ringThickness; // Radio exterior del anillo
+            const textTopPathRadius = radius + ringThickness / 3;
+            const textBottomPathRadius = radius + ringThickness / 1.5;
+            const textSize = ringRadius * 0.12; // Ajuste del tamaño del texto basado en el radio
 
             const svgContainer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             svgContainer.setAttribute('class', 'detection');
@@ -291,13 +295,13 @@ const Camera = () => {
             textTopPath.setAttribute('class', 'detection-name-top');
             textTopPath.setAttribute('width', `${ringRadius * 2}`);
             textTopPath.setAttribute('height', `${ringRadius * 2}`);
-            textTopPath.setAttribute('style', `position: absolute; left: ${centerX - ringRadius}px; top: ${centerY - ringRadius - 30}px; pointer-events: none; z-index: 3;`);
+            textTopPath.setAttribute('style', `position: absolute; left: ${centerX - ringRadius}px; top: ${centerY - ringRadius}px; pointer-events: none; z-index: 3;`);
 
             textTopPath.innerHTML = `
         <defs>
-            <path id="textTopPath-${index}" d="M ${ringRadius},${ringRadius + 20} m -${radius},0 a ${radius},${radius} 0 1,1 ${radius * 2},0" />
+            <path id="textTopPath-${index}" d="M ${ringRadius},${ringRadius} m -${textTopPathRadius},0 a ${textTopPathRadius},${textTopPathRadius} 0 1,1 ${textTopPathRadius * 2},0" />
         </defs>
-        <text fill="#000000" font-size="${ringRadius * 0.15}" letter-spacing="1"  font-weight="bold">
+        <text fill="#000000" font-size="${textSize}" letter-spacing="1" >
             <textPath xlink:href="#textTopPath-${index}" startOffset="40%" text-anchor="middle">
                 Tamaño de porción 100g
             </textPath>
@@ -311,13 +315,13 @@ const Camera = () => {
             textBottomPath.setAttribute('class', 'detection-name-bottom');
             textBottomPath.setAttribute('width', `${ringRadius * 2}`);
             textBottomPath.setAttribute('height', `${ringRadius * 2}`);
-            textBottomPath.setAttribute('style', `position: absolute; left: ${centerX - ringRadius}px; top: ${centerY - ringRadius + 40}px; pointer-events: none; z-index: 3;`);
+            textBottomPath.setAttribute('style', `position: absolute; left: ${centerX - ringRadius}px; top: ${centerY - ringRadius }px; pointer-events: none; z-index: 3;`);
 
             textBottomPath.innerHTML = `
         <defs>
-            <path id="textBottomPath-${index}" d="M ${ringRadius},${ringRadius} m -${radius},0 a ${radius},${radius} 0 1,0 ${radius * 2},0" />
+            <path id="textBottomPath-${index}" d="M ${ringRadius},${ringRadius} m -${textBottomPathRadius},0 a ${textBottomPathRadius},${textBottomPathRadius} 0 1,0 ${textBottomPathRadius * 2},0" />
         </defs>
-        <text fill="#ffffff" font-size="${ringRadius*0.25}" letter-spacing="5" font-weight="bold" >
+        <text fill="#ffffff" font-size="${textSize * 1.2}" letter-spacing="3" >
             <textPath xlink:href="#textBottomPath-${index}" startOffset="60%" text-anchor="middle">
                 ${detection.name}
             </textPath>
@@ -337,21 +341,8 @@ const Camera = () => {
 
                 nutritionInfoElements.forEach(info => {
                     const angle = info.angle * (Math.PI / 180);
-                    const infoX = centerX + (radius + 115) * Math.cos(angle);
-                    const infoY = centerY + (radius + 90) * Math.sin(angle);
-
-                    // Crear la línea que conecta el anillo verde con la información
-                    const lineElement = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                    lineElement.setAttribute('class', 'nutrition-line');
-                    lineElement.setAttribute('x1', centerX + radius * Math.cos(angle)); // Punto en el anillo
-                    lineElement.setAttribute('y1', centerY + radius * Math.sin(angle)); // Punto en el anillo
-                    lineElement.setAttribute('x2', infoX); // Punto en el texto nutricional
-                    lineElement.setAttribute('y2', infoY); // Punto en el texto nutricional
-                    lineElement.setAttribute('stroke', 'yellow');
-                    lineElement.setAttribute('stroke-width', '20');
-                    lineElement.setAttribute('style', 'position: absolute; z-index: 3;');
-
-                    svgContainer.appendChild(lineElement); // Añadir la línea al contenedor SVG
+                    const infoX = centerX + (ringRadius * 1.25) * Math.cos(angle); // Ajuste del ángulo
+                    const infoY = centerY + (ringRadius * 1.2) * Math.sin(angle); // Ajuste del ángulo
 
                     // Crear el cuadro de información nutricional
                     const detectionInfo = document.createElement('div');
@@ -360,15 +351,15 @@ const Camera = () => {
                     detectionInfo.style.left = `${infoX}px`;
                     detectionInfo.style.top = `${infoY}px`;
                     detectionInfo.style.transform = `translate(-50%, -50%)`;
-                    detectionInfo.style.color = 'white';
+                    detectionInfo.style.color = 'black';
                     detectionInfo.style.padding = '5px';
-                    detectionInfo.style.fontSize = '20px';
+                    detectionInfo.style.fontSize = `${ringRadius * 0.12}px`; // Proporcional al tamaño del anillo
                     detectionInfo.style.fontStyle = 'italic';
                     detectionInfo.style.fontWeight = 'bold';
                     detectionInfo.style.whiteSpace = 'nowrap';
                     detectionInfo.style.zIndex = '2';
                     detectionInfo.innerHTML = `
-                    <p style="font-size: 50px; font-weight: bolder; color: black">${info.value}</p>
+                    <p style="font-size: ${ringRadius * 0.15}px; font-weight: bolder; color: black">${info.value}</p>
                     <p style="color: black">${info.label}</p>
                 `;
                     document.querySelector('.camera-container').appendChild(detectionInfo);

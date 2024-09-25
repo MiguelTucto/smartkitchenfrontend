@@ -99,10 +99,12 @@
     color: #007bff;
 }
 
-.detection-name-top,
+.detection-name-top{
+
+}
 .detection-name-bottom {
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-    font-weight: bold;
+    text-transform: uppercase;
+    font-family: monospace;
 }
 
 .detection {
