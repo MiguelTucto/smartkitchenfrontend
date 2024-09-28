@@ -42,12 +42,11 @@
 }
 
 .modal-content {
-    background-color: white;
     padding: 20px;
     border-radius: 10px;
-    max-width: 500px; /* Ancho máximo del modal */
+    max-width: 1000px; /* Ancho máximo del modal */
     width: 100%;
-    text-align: center;
+    text-align: initial;
 }
 
 .modal-input {
